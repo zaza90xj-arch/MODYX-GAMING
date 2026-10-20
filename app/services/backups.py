@@ -1,17 +1,35 @@
 from __future__ import annotations
 
+from typing import Dict, List
+
 from app.database.connection import get_connection
 
 
-def create_backup_record(file_name: str, status: str, message: str) -> dict:
+def add_points(user_id: int, amount: int, reason: str, source: str = "manual", actor_id: int = 0, event_key: str = "") -> Dict[str, object]:
     conn = get_connection()
     try:
-        row = conn.execute(
-            "INSERT INTO backup_logs (file_name, status, message) VALUES (?, ?, ?)",
-            (file_name, status, message),
+        conn.execute(
+            "INSERT INTO points_ledger (user_id, amount, reason, source, actor_id, event_key) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, amount, reason, source, actor_id, event_key),
+        )
+        conn.execute(
+            "UPDATE users SET points = COALESCE(points, 0) + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (amount, user_id),
         )
         conn.commit()
-        item = conn.execute("SELECT * FROM backup_logs WHERE id = ?", (row.lastrowid,)).fetchone()
-        return dict(item)
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return {"ok": True, "user": dict(row)}
+    finally:
+        conn.close()
+
+
+def leaderboard(limit: int = 10) -> List[Dict[str, object]]:
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT telegram_id, first_name, points FROM users ORDER BY points DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()

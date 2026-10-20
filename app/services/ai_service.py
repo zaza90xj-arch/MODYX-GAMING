@@ -9,11 +9,11 @@ def ai_available() -> bool:
 
 def ai_status_message() -> str:
     if not ai_available():
-        return "النظام الذكي غير مفعّل حاليًا. أضف AI_API_KEY وAI_MODEL في app/config.py."
-    return f"المساعد الذكي جاهز: {AI_MODEL}"
+        return "النظام الذكي غير مفعّل حاليًا. أضف AI_API_KEY وAI_MODEL في app/config.py لتفعيل المساعد الذكي."
+    return f"المساعد الذكي جاهز باستخدام النموذج: {AI_MODEL}"
 
 
 def create_ai_reply(prompt: str) -> str:
     if not ai_available():
         return ai_status_message()
-    return f"(محاكاة) تم استقبال طلب ذكي: {prompt[:150]}"
+    return f"(محاكاة) تم استقبال طلب ذكي: {prompt[:160]}"

@@ -6,7 +6,7 @@ import os
 def sanitize_for_log(message: str) -> str:
     if not message:
         return ""
-    for secret in ["BOT_TOKEN", "AI_API_KEY", "WEB_ADMIN_PASSWORD"]:
+    for secret in ["BOT_TOKEN", "AI_API_KEY", "WEB_ADMIN_PASSWORD", "WEB_ADMIN_USERNAME"]:
         value = os.environ.get(secret)
         if value:
             message = message.replace(value, "[REDACTED]")

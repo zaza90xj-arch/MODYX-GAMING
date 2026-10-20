@@ -1,37 +1,47 @@
 from __future__ import annotations
 
+from pathlib import Path
+from datetime import datetime
+from typing import Any, Dict
+
 from app.database.connection import get_connection
+from app.config import BACKUP_PATH
 
 
-def create_turnament_record(name: str, game_type: str, format_type: str, max_players: int, creator_telegram_id: int) -> dict:
+def get_stats() -> Dict[str, Any]:
     conn = get_connection()
     try:
-        row = conn.execute(
-            "INSERT INTO tournaments (name, game_type, format_type, max_players, registration_open, status, creator_telegram_id) VALUES (?, ?, ?, ?, 1, 'upcoming', ?)",
-            (name, game_type, format_type, max_players, creator_telegram_id),
+        return {
+            "users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+            "tournaments": conn.execute("SELECT COUNT(*) FROM tournaments").fetchone()[0],
+            "registrations": conn.execute("SELECT COUNT(*) FROM registrations").fetchone()[0],
+            "support_tickets": conn.execute("SELECT COUNT(*) FROM support_tickets").fetchone()[0],
+        }
+    finally:
+        conn.close()
+
+
+def make_backup() -> str:
+    src = Path("data/modyx_gaming.db")
+    if not src.exists():
+        raise FileNotFoundError("قاعدة البيانات غير موجودة")
+    backup_dir = Path(BACKUP_PATH)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out = backup_dir / f"modyx_backup_{timestamp}.db"
+    out.write_bytes(src.read_bytes())
+    return str(out)
+
+
+def add_announcement(title: str, message: str, target_group_id: int = 0, created_by: int = 0) -> Dict[str, Any]:
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO announcements (title, message, target_group_id, status, created_by) VALUES (?, ?, ?, 'scheduled', ?)",
+            (title, message, target_group_id, created_by),
         )
         conn.commit()
-        item = conn.execute("SELECT * FROM tournaments WHERE id = ?", (row.lastrowid,)).fetchone()
-        return dict(item)
-    finally:
-        conn.close()
-
-
-def open_registration(tournament_id: int) -> dict:
-    conn = get_connection()
-    try:
-        conn.execute("UPDATE tournaments SET registration_open = 1, status = 'open' WHERE id = ?", (tournament_id,))
-        conn.commit()
-        return {"ok": True}
-    finally:
-        conn.close()
-
-
-def close_registration(tournament_id: int) -> dict:
-    conn = get_connection()
-    try:
-        conn.execute("UPDATE tournaments SET registration_open = 0, status = 'closed' WHERE id = ?", (tournament_id,))
-        conn.commit()
-        return {"ok": True}
+        row = conn.execute("SELECT * FROM announcements WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return dict(row)
     finally:
         conn.close()

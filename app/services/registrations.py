@@ -1,45 +1,50 @@
 from __future__ import annotations
 
+from typing import Any, Dict, Optional
+
 from app.database.connection import get_connection
 
 
-def register_player(tournament_id: int, user_id: int, telegram_id: int, in_game_name: str, uid: str, participation_type: str = "solo", consent: int = 1) -> dict:
+def create_turnament_record(name: str, game_type: str, format_type: str, max_players: int, creator_telegram_id: int, description: str = "", rules: str = "") -> Dict[str, Any]:
     conn = get_connection()
     try:
-        exists = conn.execute(
-            "SELECT 1 FROM registrations WHERE tournament_id = ? AND telegram_id = ? LIMIT 1",
-            (tournament_id, telegram_id),
-        ).fetchone()
-        if exists:
-            return {"ok": False, "message": "تم تسجيل اللاعب في هذه البطولة مسبقًا."}
-
-        request_no = f"REQ-{telegram_id}-{tournament_id}"
-        row = conn.execute(
-            "INSERT INTO registrations (tournament_id, user_id, telegram_id, in_game_name, uid, participation_type, consent, status, request_no) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
-            (tournament_id, user_id, telegram_id, in_game_name, uid, participation_type, consent, request_no),
+        cursor = conn.execute(
+            """
+            INSERT INTO tournaments (
+                name, game_type, format_type, max_players, registration_open,
+                status, description, rules, creator_telegram_id
+            ) VALUES (?, ?, ?, ?, 1, 'upcoming', ?, ?, ?)
+            """,
+            (name, game_type, format_type, max_players, description, rules, creator_telegram_id),
         )
         conn.commit()
-        item = conn.execute("SELECT * FROM registrations WHERE id = ?", (row.lastrowid,)).fetchone()
-        return {"ok": True, "registration": dict(item)}
+        row = conn.execute("SELECT * FROM tournaments WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return dict(row)
     finally:
         conn.close()
 
 
-def approve_registration(registration_id: int) -> dict:
+def open_registration(tournament_id: int) -> Dict[str, Any]:
     conn = get_connection()
     try:
-        conn.execute("UPDATE registrations SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (registration_id,))
+        conn.execute(
+            "UPDATE tournaments SET registration_open = 1, status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (tournament_id,),
+        )
         conn.commit()
-        return {"ok": True, "status": "approved"}
+        return {"ok": True}
     finally:
         conn.close()
 
 
-def reject_registration(registration_id: int) -> dict:
+def close_registration(tournament_id: int) -> Dict[str, Any]:
     conn = get_connection()
     try:
-        conn.execute("UPDATE registrations SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (registration_id,))
+        conn.execute(
+            "UPDATE tournaments SET registration_open = 0, status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (tournament_id,),
+        )
         conn.commit()
-        return {"ok": True, "status": "rejected"}
+        return {"ok": True}
     finally:
         conn.close()
