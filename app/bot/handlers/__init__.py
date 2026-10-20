@@ -1,76 +1,139 @@
-from __future__ import annotations
+body {
+    margin: 0;
+    font-family: 'Tahoma', sans-serif;
+    background: linear-gradient(135deg, #07111f 0%, #101a2b 34%, #111827 100%);
+    color: #e2e8f0;
+}
 
-from aiogram import Router
-from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+* { box-sizing: border-box; }
 
-from app.config import BOT_NAME, BOT_TOKEN
-from app.database.connection import get_connection
-from app.database.models import list_users
-from app.services.ai_service import ai_status_message
-from app.utils.logger import setup_logger
+.login-wrap {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: 24px;
+}
 
-logger = setup_logger("modyx.bot")
-router = Router()
+.login-card {
+    width: min(100%, 430px);
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 0 28px rgba(37,99,235,0.18);
+}
 
+.login-card h1, .login-card h2 { text-align: center; }
 
-def main_menu_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏆 بطولات Free Fire", callback_data="tournaments")],
-        [InlineKeyboardButton(text="📝 تسجيل في بطولة", callback_data="register")],
-        [InlineKeyboardButton(text="📊 بطولاتي", callback_data="my_tournaments")],
-        [InlineKeyboardButton(text="⭐ النقاط والمستويات", callback_data="points")],
-        [InlineKeyboardButton(text="💬 الذكاء الاصطناعي", callback_data="ai")],
-        [InlineKeyboardButton(text="⚙️ الإعدادات", callback_data="settings")],
-    ])
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
 
+label {
+    color: #cbd5e1;
+    font-size: 14px;
+}
 
-@router.message(CommandStart())
-async def start_command(message: Message):
-    from app.database.connection import get_connection
-    conn = get_connection()
-    try:
-        conn.execute(
-            "INSERT OR IGNORE INTO users (telegram_id, first_name, last_name, username) VALUES (?, ?, ?, ?)",
-            (message.from_user.id, message.from_user.first_name or "", message.from_user.last_name or "", message.from_user.username or ""),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    await message.answer(
-        f"مرحبًا بك في {BOT_NAME} 👋\n\nاختر الخدمة المطلوبة:",
-        reply_markup=main_menu_kb(),
-    )
+input {
+    padding: 12px 14px;
+    border: 1px solid #2b3d5d;
+    border-radius: 10px;
+    background: #0b1320;
+    color: white;
+    font-size: 15px;
+}
 
+button {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #2563eb, #38bdf8);
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
 
-@router.message(Command("menu"))
-async def menu_command(message: Message):
-    await message.answer("القائمة الرئيسية:", reply_markup=main_menu_kb())
+.error-box {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fecaca;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
 
+.dashboard-shell {
+    display: flex;
+    min-height: 100vh;
+}
 
-@router.message(Command("status"))
-async def status_command(message: Message):
-    conn = get_connection()
-    try:
-        users_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        tournaments_count = conn.execute("SELECT COUNT(*) FROM tournaments").fetchone()[0]
-    finally:
-        conn.close()
-    await message.answer(f"الحالة الحالية:\nالمستخدمون: {users_count}\nالبطولات: {tournaments_count}\nحالة البوت: {'مفعّل' if BOT_TOKEN else 'غير مفعّل'}")
+.sidebar {
+    width: 260px;
+    background: #0a1220;
+    border-left: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 24px 18px;
+}
 
+.sidebar nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
 
-@router.message(Command("register_tournament"))
-async def register_tournament_command(message: Message):
-    await message.answer("يرجى استخدام قسم التسجيل من لوحة الإدارة أو تفعيل طريقة التسجيل داخل البوت في مرحلة لاحقة.\nيمكنك إستخدام /menu للعودة للقائمة الرئيسية.")
+.sidebar a {
+    color: #dbeafe;
+    text-decoration: none;
+    padding: 12px 14px;
+    background: rgba(37, 99, 235, 0.12);
+    border-radius: 12px;
+}
 
+.main-panel {
+    flex: 1;
+    padding: 32px;
+}
 
-@router.message(Command("ai_status"))
-async def ai_status_command(message: Message):
-    await message.answer(ai_status_message())
+.topbar {
+    margin-bottom: 24px;
+}
 
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
 
-@router.message(Command("help"))
-async def help_command(message: Message):
-    await message.answer(
-        "قائمة الأوامر:\n/start\n/menu\n/help\n/status\n/register_tournament\n/ai_status"
-    )
+.stat-card, .panel-card {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.15);
+}
+
+.stat-card span {
+    display: block;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.stat-card strong {
+    font-size: 2rem;
+    color: white;
+}
+
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+}
+
+ul {
+    padding-right: 18px;
+    line-height: 1.8;
+}

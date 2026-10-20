@@ -1,44 +1,33 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة الإدارة | MODYX GAMING</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <div class="dashboard-shell">
-        <aside class="sidebar">
-            <h3>MODYX GAMING</h3>
-            <nav>
-                <a href="/dashboard">الرئيسية</a>
-                <a href="/api/health">حالة الخدمات</a>
-                <a href="/logout">تسجيل الخروج</a>
-            </nav>
-        </aside>
-        <main class="main-panel">
-            <div class="topbar">
-                <h2>لوحة الإحصائيات</h2>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span>المستخدمين</span>
-                    <strong>{{ stats.users }}</strong>
-                </div>
-                <div class="stat-card">
-                    <span>البطولات</span>
-                    <strong>{{ stats.tournaments }}</strong>
-                </div>
-                <div class="stat-card">
-                    <span>التسجيلات</span>
-                    <strong>{{ stats.registrations }}</strong>
-                </div>
-                <div class="stat-card">
-                    <span>طلبات الدعم</span>
-                    <strong>{{ stats.support_tickets }}</strong>
-                </div>
-            </div>
-        </main>
-    </div>
-</body>
-</html>
+async function loadStats() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    document.getElementById('statusText').textContent = `${data.service} | ${data.database}`;
+  } catch (error) {
+    document.getElementById('statusText').textContent = 'تعذر تحميل الحالة';
+  }
+}
+
+async function loadTournaments() {
+  try {
+    const res = await fetch('/api/tournaments');
+    const data = await res.json();
+    const list = document.getElementById('tournamentList');
+    if (!list) return;
+
+    if (!data.length) {
+      list.innerHTML = '<li>لا توجد بطولات حتى الآن.</li>';
+      return;
+    }
+
+    list.innerHTML = data.slice(0, 8).map(t => `<li>#${t.id} - ${t.name} - ${t.status}</li>`).join('');
+  } catch (error) {
+    const list = document.getElementById('tournamentList');
+    if (list) list.innerHTML = '<li>تعذر تحميل البيانات.</li>';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadStats();
+  loadTournaments();
+});
