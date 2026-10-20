@@ -1,60 +1,76 @@
 from __future__ import annotations
 
 from aiogram import Router
-from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram.filters import Command, CommandStart
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
-from app.bot.keyboards.main import main_menu_kb
-from app.config import BOT_NAME
+from app.config import BOT_NAME, BOT_TOKEN
 from app.database.connection import get_connection
-from app.database.models import ensure_user
+from app.database.models import list_users
 from app.services.ai_service import ai_status_message
+from app.utils.logger import setup_logger
 
+logger = setup_logger("modyx.bot")
 router = Router()
 
 
+def main_menu_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏆 بطولات Free Fire", callback_data="tournaments")],
+        [InlineKeyboardButton(text="📝 تسجيل في بطولة", callback_data="register")],
+        [InlineKeyboardButton(text="📊 بطولاتي", callback_data="my_tournaments")],
+        [InlineKeyboardButton(text="⭐ النقاط والمستويات", callback_data="points")],
+        [InlineKeyboardButton(text="💬 الذكاء الاصطناعي", callback_data="ai")],
+        [InlineKeyboardButton(text="⚙️ الإعدادات", callback_data="settings")],
+    ])
+
+
 @router.message(CommandStart())
-async def start_handler(message: Message) -> None:
-    ensure_user(message.from_user.id, message.from_user.first_name, message.from_user.last_name, message.from_user.username)
+async def start_command(message: Message):
+    from app.database.connection import get_connection
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO users (telegram_id, first_name, last_name, username) VALUES (?, ?, ?, ?)",
+            (message.from_user.id, message.from_user.first_name or "", message.from_user.last_name or "", message.from_user.username or ""),
+        )
+        conn.commit()
+    finally:
+        conn.close()
     await message.answer(
-        f"مرحبًا بك في {BOT_NAME} 👋\nاختر الخدمة المطلوبة:",
+        f"مرحبًا بك في {BOT_NAME} 👋\n\nاختر الخدمة المطلوبة:",
         reply_markup=main_menu_kb(),
     )
 
 
-@router.callback_query(lambda c: c.data == "tournaments")
-async def tournaments_handler(callback: CallbackQuery) -> None:
+@router.message(Command("menu"))
+async def menu_command(message: Message):
+    await message.answer("القائمة الرئيسية:", reply_markup=main_menu_kb())
+
+
+@router.message(Command("status"))
+async def status_command(message: Message):
     conn = get_connection()
     try:
-        rows = conn.execute("SELECT name, status FROM tournaments ORDER BY id DESC LIMIT 5").fetchall()
-        if rows:
-            text = "\n".join(f"• {row['name']} | {row['status']}" for row in rows)
-        else:
-            text = "لا توجد بطولات حالياً."
+        users_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        tournaments_count = conn.execute("SELECT COUNT(*) FROM tournaments").fetchone()[0]
     finally:
         conn.close()
-    await callback.message.answer(text)
-    await callback.answer()
+    await message.answer(f"الحالة الحالية:\nالمستخدمون: {users_count}\nالبطولات: {tournaments_count}\nحالة البوت: {'مفعّل' if BOT_TOKEN else 'غير مفعّل'}")
 
 
-@router.callback_query(lambda c: c.data == "register")
-async def register_handler(callback: CallbackQuery) -> None:
-    await callback.message.answer("ميزة التسجيل في البطولة متاحة من خلال القنوات الإدارية. ستتم إضافة واجهة تسجيل كاملة مستقبلاً.")
-    await callback.answer()
+@router.message(Command("register_tournament"))
+async def register_tournament_command(message: Message):
+    await message.answer("يرجى استخدام قسم التسجيل من لوحة الإدارة أو تفعيل طريقة التسجيل داخل البوت في مرحلة لاحقة.\nيمكنك إستخدام /menu للعودة للقائمة الرئيسية.")
 
 
-@router.callback_query(lambda c: c.data == "ai")
-async def ai_handler(callback: CallbackQuery) -> None:
-    await callback.message.answer(ai_status_message())
-    await callback.answer()
+@router.message(Command("ai_status"))
+async def ai_status_command(message: Message):
+    await message.answer(ai_status_message())
 
 
-@router.callback_query(lambda c: c.data == "points")
-async def points_handler(callback: CallbackQuery) -> None:
-    conn = get_connection()
-    try:
-        total = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    finally:
-        conn.close()
-    await callback.message.answer(f"عدد المستخدمين المسجلين: {total}")
-    await callback.answer()
+@router.message(Command("help"))
+async def help_command(message: Message):
+    await message.answer(
+        "قائمة الأوامر:\n/start\n/menu\n/help\n/status\n/register_tournament\n/ai_status"
+    )
